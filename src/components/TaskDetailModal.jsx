@@ -41,25 +41,28 @@ export default function TaskDetailModal({
   const [aiPriorityRec, setAiPriorityRec] = useState(null);
   const [aiEffortRec, setAiEffortRec] = useState(null);
 
-  const loadTaskDetails = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [taskRes, commentRes] = await Promise.all([
-        api.getTaskById(taskId),
-        api.getComments(taskId, 1, 50),
-      ]);
-      setTask(taskRes.data);
-      setComments(commentRes.data || []);
-    } catch (err) {
-      showToast(err.message, "error");
-      onClose();
-    } finally {
-      setLoading(false);
-    }
-  }, [taskId, showToast, onClose]);
+  const loadTaskDetails = useCallback(
+    async (showSpinner = false) => {
+      if (showSpinner) setLoading(true);
+      try {
+        const [taskRes, commentRes] = await Promise.all([
+          api.getTaskById(taskId),
+          api.getComments(taskId, 1, 50),
+        ]);
+        setTask(taskRes.data);
+        setComments(commentRes.data || []);
+      } catch (err) {
+        showToast?.(err.message, "error");
+        onClose?.();
+      } finally {
+        setLoading(false);
+      }
+    },
+    [taskId]
+  );
 
   useEffect(() => {
-    loadTaskDetails();
+    loadTaskDetails(true);
   }, [loadTaskDetails]);
 
   const canManage =
@@ -197,17 +200,15 @@ export default function TaskDetailModal({
           ) : (
             <div className="flex flex-wrap items-center gap-2.5">
               <span
-                className={`text-xs font-medium px-2.5 py-0.5 rounded-full border ${
-                  STATUS_META[task.status]?.badge || STATUS_META.TODO.badge
-                }`}
+                className={`text-xs font-medium px-2.5 py-0.5 rounded-full border ${STATUS_META[task.status]?.badge || STATUS_META.TODO.badge
+                  }`}
               >
                 {STATUS_META[task.status]?.label || task.status}
               </span>
               <span
-                className={`text-xs font-semibold px-2.5 py-0.5 rounded border ${
-                  PRIORITY_META[task.priority]?.badge ||
+                className={`text-xs font-semibold px-2.5 py-0.5 rounded border ${PRIORITY_META[task.priority]?.badge ||
                   PRIORITY_META.MEDIUM.badge
-                }`}
+                  }`}
               >
                 {task.priority} PRIORITY
               </span>

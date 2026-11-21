@@ -31,6 +31,7 @@ import {
 import TaskDetailModal from "./components/TaskDetailModal.jsx";
 import TaskFormModal from "./components/TaskFormModal.jsx";
 import ApiServerModal from "./components/ApiServerModal.jsx";
+import LandingPage from "./components/LandingPage.jsx";
 
 export const STATUS_META = {
   TODO: {
@@ -79,24 +80,8 @@ export const PRIORITY_META = {
   },
 };
 
-export default function App() {
-  // Theme state ("dark" | "light")
-  const [theme, setTheme] = useState(
-    () => localStorage.getItem("taskflow_theme") || "dark"
-  );
-
-  // Live Date & Time state
+function LiveClock({ variant = "header" }) {
   const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "light") {
-      root.classList.add("light-theme");
-    } else {
-      root.classList.remove("light-theme");
-    }
-    localStorage.setItem("taskflow_theme", theme);
-  }, [theme]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -104,10 +89,6 @@ export default function App() {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
-
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
-  };
 
   const formattedDate = now.toLocaleDateString(undefined, {
     weekday: "long",
@@ -122,8 +103,56 @@ export default function App() {
     second: "2-digit",
   });
 
+  if (variant === "hero") {
+    return (
+      <>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950/80 border border-slate-800 text-xs text-slate-300">
+          <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+          {formattedDate}
+        </span>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950/80 border border-slate-800 text-xs font-mono text-white">
+          <Clock className="w-3.5 h-3.5 text-indigo-400" />
+          {formattedTime}
+        </span>
+      </>
+    );
+  }
+
+  return (
+    <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300">
+      <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+      <span className="font-medium">{formattedDate}</span>
+      <span className="text-slate-600">|</span>
+      <Clock className="w-3.5 h-3.5 text-indigo-400" />
+      <span className="font-mono font-semibold text-white">
+        {formattedTime}
+      </span>
+    </div>
+  );
+}
+
+export default function App() {
+  // Theme state ("dark" | "light")
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem("taskflow_theme") || "dark"
+  );
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === "light") {
+      root.classList.add("light-theme");
+    } else {
+      root.classList.remove("light-theme");
+    }
+    localStorage.setItem("taskflow_theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  };
+
   const getGreeting = () => {
-    const hour = now.getHours();
+    const hour = new Date().getHours();
     if (hour < 12) return "Good morning";
     if (hour < 17) return "Good afternoon";
     return "Good evening";
@@ -131,6 +160,7 @@ export default function App() {
 
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [showAuthScreen, setShowAuthScreen] = useState(false);
   const [authMode, setAuthMode] = useState("login"); // "login" | "register"
   const [authForm, setAuthForm] = useState({
     name: "",
@@ -323,6 +353,7 @@ export default function App() {
     setUsers([]);
     setSelectedTaskId(null);
     setActiveTab("dashboard");
+    setShowAuthScreen(false);
   };
 
   const handleQuickStatusUpdate = async (taskId, newStatus) => {
@@ -417,34 +448,73 @@ export default function App() {
     );
   }
 
-  // AUTHENTICATION SCREEN
+  // LANDING PAGE OR AUTHENTICATION SCREEN
   if (!user) {
+    if (!showAuthScreen) {
+      return (
+        <>
+          <LandingPage
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            apiUrl={apiUrl}
+            health={health}
+            onOpenApiModal={() => setShowApiModal(true)}
+            onSignIn={() => {
+              setAuthMode("login");
+              setAuthError("");
+              setShowAuthScreen(true);
+            }}
+            onRegister={() => {
+              setAuthMode("register");
+              setAuthError("");
+              setShowAuthScreen(true);
+            }}
+            LiveClockComponent={<LiveClock variant="header" />}
+          />
+          {showApiModal && (
+            <ApiServerModal
+              currentUrl={apiUrl}
+              health={health}
+              onClose={() => setShowApiModal(false)}
+              onSave={(newUrl) => {
+                setApiBaseUrl(newUrl);
+                setApiUrlState(getApiBaseUrl());
+                setShowApiModal(false);
+              }}
+            />
+          )}
+        </>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col justify-between p-4 sm:p-8">
         {/* Top bar with Date/Time, Theme Toggle & API Server Switcher */}
         <div className="max-w-6xl w-full mx-auto flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="font-bold text-lg tracking-tight text-white">
-                TaskFlow AI
-              </span>
-              <span className="block text-xs text-slate-400">
-                Internal Task & Ticket Tracking
-              </span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowAuthScreen(false)}
+              className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs text-slate-300 transition cursor-pointer"
+            >
+              ← Home
+            </button>
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="font-bold text-lg tracking-tight text-white">
+                  TaskFlow AI
+                </span>
+                <span className="block text-xs text-slate-400">
+                  Internal Task & Ticket Tracking
+                </span>
+              </div>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300">
-              <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-              <span>{formattedDate}</span>
-              <span className="text-slate-600">•</span>
-              <Clock className="w-3.5 h-3.5 text-indigo-400" />
-              <span className="font-mono">{formattedTime}</span>
-            </div>
+            <LiveClock variant="header" />
 
             <button
               onClick={toggleTheme}
@@ -469,13 +539,12 @@ export default function App() {
               className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs text-slate-300 transition cursor-pointer"
             >
               <span
-                className={`w-2 h-2 rounded-full ${
-                  health.status === "online"
+                className={`w-2 h-2 rounded-full ${health.status === "online"
                     ? "bg-emerald-400"
                     : health.status === "checking"
-                    ? "bg-amber-400 animate-pulse"
-                    : "bg-rose-500"
-                }`}
+                      ? "bg-amber-400 animate-pulse"
+                      : "bg-rose-500"
+                  }`}
               />
               <Server className="w-3.5 h-3.5 text-slate-400" />
               <span className="font-mono text-slate-300 truncate max-w-[220px]">
@@ -604,8 +673,8 @@ export default function App() {
               {submittingAuth
                 ? "Please wait..."
                 : authMode === "login"
-                ? "Sign In"
-                : "Create Account"}
+                  ? "Sign In"
+                  : "Create Account"}
             </button>
           </form>
 
@@ -685,11 +754,10 @@ export default function App() {
           <nav className="space-y-1.5">
             <button
               onClick={() => setActiveTab("dashboard")}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer ${
-                activeTab === "dashboard"
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer ${activeTab === "dashboard"
                   ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
                   : "text-slate-400 hover:text-white hover:bg-slate-800/60"
-              }`}
+                }`}
             >
               <LayoutDashboard className="w-4 h-4" />
               <span>Dashboard</span>
@@ -697,11 +765,10 @@ export default function App() {
 
             <button
               onClick={() => setActiveTab("tasks")}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer ${
-                activeTab === "tasks"
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer ${activeTab === "tasks"
                   ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
                   : "text-slate-400 hover:text-white hover:bg-slate-800/60"
-              }`}
+                }`}
             >
               <div className="flex items-center gap-3">
                 <CheckSquare className="w-4 h-4" />
@@ -717,11 +784,10 @@ export default function App() {
             {(user.role === "ADMIN" || user.role === "MANAGER") && (
               <button
                 onClick={() => setActiveTab("team")}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer ${
-                  activeTab === "team"
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer ${activeTab === "team"
                     ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
                     : "text-slate-400 hover:text-white hover:bg-slate-800/60"
-                }`}
+                  }`}
               >
                 <Users className="w-4 h-4" />
                 <span>
@@ -734,11 +800,10 @@ export default function App() {
 
             <button
               onClick={() => setActiveTab("profile")}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer ${
-                activeTab === "profile"
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer ${activeTab === "profile"
                   ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
                   : "text-slate-400 hover:text-white hover:bg-slate-800/60"
-              }`}
+                }`}
             >
               <UserCircle className="w-4 h-4" />
               <span>My Profile</span>
@@ -754,11 +819,10 @@ export default function App() {
           >
             <div className="flex items-center gap-2 truncate">
               <span
-                className={`w-2 h-2 rounded-full shrink-0 ${
-                  health.status === "online"
+                className={`w-2 h-2 rounded-full shrink-0 ${health.status === "online"
                     ? "bg-emerald-400"
                     : "bg-rose-500"
-                }`}
+                  }`}
               />
               <span className="text-slate-400 truncate font-mono text-[11px]">
                 {apiUrl.replace(/^https?:\/\//, "")}
@@ -810,50 +874,48 @@ export default function App() {
 
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Live Date & Time Pill */}
-            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300">
-              <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-              <span className="font-medium">{formattedDate}</span>
-              <span className="text-slate-600">|</span>
-              <Clock className="w-3.5 h-3.5 text-indigo-400" />
-              <span className="font-mono font-semibold text-white">
-                {formattedTime}
-              </span>
-            </div>
+            <LiveClock variant="header" />
 
             {/* Mobile Nav Tabs */}
             <div className="flex md:hidden items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1">
               <button
                 onClick={() => setActiveTab("dashboard")}
-                className={`px-2.5 py-1 rounded-lg text-xs ${
-                  activeTab === "dashboard"
+                className={`px-2.5 py-1 rounded-lg text-xs ${activeTab === "dashboard"
                     ? "bg-indigo-600 text-white"
                     : "text-slate-400"
-                }`}
+                  }`}
               >
                 Home
               </button>
               <button
                 onClick={() => setActiveTab("tasks")}
-                className={`px-2.5 py-1 rounded-lg text-xs ${
-                  activeTab === "tasks"
+                className={`px-2.5 py-1 rounded-lg text-xs ${activeTab === "tasks"
                     ? "bg-indigo-600 text-white"
                     : "text-slate-400"
-                }`}
+                  }`}
               >
                 Tasks
               </button>
               {(user.role === "ADMIN" || user.role === "MANAGER") && (
                 <button
                   onClick={() => setActiveTab("team")}
-                  className={`px-2.5 py-1 rounded-lg text-xs ${
-                    activeTab === "team"
+                  className={`px-2.5 py-1 rounded-lg text-xs ${activeTab === "team"
                       ? "bg-indigo-600 text-white"
                       : "text-slate-400"
-                  }`}
+                    }`}
                 >
                   Team
                 </button>
               )}
+              <button
+                onClick={() => setActiveTab("profile")}
+                className={`px-2.5 py-1 rounded-lg text-xs ${activeTab === "profile"
+                    ? "bg-indigo-600 text-white"
+                    : "text-slate-400"
+                  }`}
+              >
+                Profile
+              </button>
             </div>
 
             {/* Light / Dark Mode Switcher */}
@@ -900,17 +962,26 @@ export default function App() {
                 <span>New Task</span>
               </button>
             )}
+
+            {/* Mobile & Header Sign Out Button */}
+            <button
+              onClick={handleLogout}
+              title="Sign Out"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-rose-700 text-xs font-medium text-rose-400 transition cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Sign Out</span>
+            </button>
           </div>
         </header>
 
         {/* Toast Notification */}
         {toast && (
           <div
-            className={`fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-2xl text-sm font-medium ${
-              toast.type === "error"
+            className={`fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-2xl text-sm font-medium ${toast.type === "error"
                 ? "bg-rose-950 border-rose-800 text-rose-200"
                 : "bg-emerald-950 border-emerald-800 text-emerald-200"
-            }`}
+              }`}
           >
             {toast.type === "error" ? (
               <AlertCircle className="w-4 h-4 text-rose-400" />
@@ -934,14 +1005,7 @@ export default function App() {
                       <Sparkles className="w-3.5 h-3.5" />
                       {user.role} WORKSPACE
                     </span>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950/80 border border-slate-800 text-xs text-slate-300">
-                      <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-                      {formattedDate}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950/80 border border-slate-800 text-xs font-mono text-white">
-                      <Clock className="w-3.5 h-3.5 text-indigo-400" />
-                      {formattedTime}
-                    </span>
+                    <LiveClock variant="hero" />
                   </div>
 
                   <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
@@ -1106,7 +1170,7 @@ export default function App() {
                       const columnTasks = tasks.filter((t) =>
                         statusKey === "IN_PROGRESS"
                           ? t.status === "IN_PROGRESS" ||
-                            t.status === "IN_REVIEW"
+                          t.status === "IN_REVIEW"
                           : t.status === statusKey
                       );
                       const meta = STATUS_META[statusKey];
@@ -1144,10 +1208,9 @@ export default function App() {
                                 >
                                   <div className="flex items-center justify-between gap-2 mb-1.5">
                                     <span
-                                      className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${
-                                        PRIORITY_META[task.priority]?.badge ||
+                                      className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${PRIORITY_META[task.priority]?.badge ||
                                         PRIORITY_META.MEDIUM.badge
-                                      }`}
+                                        }`}
                                     >
                                       {task.priority}
                                     </span>
@@ -1266,21 +1329,21 @@ export default function App() {
                   filters.status ||
                   filters.priority ||
                   filters.assignedToId) && (
-                  <button
-                    onClick={() =>
-                      setFilters({
-                        search: "",
-                        status: "",
-                        priority: "",
-                        assignedToId: "",
-                        page: 1,
-                      })
-                    }
-                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 cursor-pointer"
-                  >
-                    Clear
-                  </button>
-                )}
+                    <button
+                      onClick={() =>
+                        setFilters({
+                          search: "",
+                          status: "",
+                          priority: "",
+                          assignedToId: "",
+                          page: 1,
+                        })
+                      }
+                      className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
               </div>
 
               {/* Tasks Grid */}
@@ -1498,11 +1561,10 @@ export default function App() {
                                 {u.id !== user.id && (
                                   <button
                                     onClick={() => handleToggleUserActive(u)}
-                                    className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition cursor-pointer ${
-                                      u.isActive
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition cursor-pointer ${u.isActive
                                         ? "bg-rose-950/60 border-rose-800/80 text-rose-300 hover:bg-rose-900/60"
                                         : "bg-emerald-950/60 border-emerald-800/80 text-emerald-300 hover:bg-emerald-900/60"
-                                    }`}
+                                      }`}
                                   >
                                     {u.isActive ? "Deactivate" : "Reactivate"}
                                   </button>
@@ -1601,11 +1663,10 @@ export default function App() {
 
               {profileMsg.text && (
                 <div
-                  className={`p-3 rounded-xl text-xs border ${
-                    profileMsg.type === "error"
+                  className={`p-3 rounded-xl text-xs border ${profileMsg.type === "error"
                       ? "bg-rose-950/60 border-rose-800 text-rose-200"
                       : "bg-emerald-950/60 border-emerald-800 text-emerald-200"
-                  }`}
+                    }`}
                 >
                   {profileMsg.text}
                 </div>
